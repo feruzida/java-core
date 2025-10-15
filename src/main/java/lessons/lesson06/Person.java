@@ -9,8 +9,6 @@ public abstract class Person {
         this.id = id;
     }
 
-
-
     public String getFio() {
         return fio;
     }

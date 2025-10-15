@@ -1,53 +1,53 @@
 package lessons.lesson06;
 
+import java.time.LocalDateTime;
+
 public abstract class Reserve {
     protected int seatNumber;
     protected String flightClass;
     protected boolean isReserved;
     protected Passenger passenger;
+    protected String status = "FREE";
+    protected LocalDateTime bookingTime;
 
     public Reserve(int seatNumber, String flightClass, boolean isReserved, Passenger passenger) {
         this.seatNumber = seatNumber;
         this.flightClass = flightClass;
         this.isReserved = isReserved;
         this.passenger = passenger;
+        this.status = isReserved ? "BOOKED" : "FREE";
     }
 
-    abstract public void book();
+    public abstract void book();
+    public abstract void cancel();
+    public abstract String getInfo();
 
-    abstract public void cancel();
+    public boolean isExpired() {
+        if (status.equals("BOOKED") && bookingTime != null) {
+            return bookingTime.plusMinutes(24).isBefore(LocalDateTime.now());
+        }
+        return false;
+    }
 
-    abstract public String getInfo();
+    public LocalDateTime getBookingTime() {
+        return bookingTime;
+    }
+
+    public void setBookingTime(LocalDateTime bookingTime) {
+        this.bookingTime = bookingTime;
+    }
 
     public int getSeatNumber() {
         return seatNumber;
-    }
-
-    public void setSeatNumber(int seatNumber) {
-        this.seatNumber = seatNumber;
-    }
-
-    public void setFlightClass(String flightClass) {
-        this.flightClass = flightClass;
-    }
-
-    public void setReserved(boolean reserved) {
-        isReserved = reserved;
-    }
-
-    public void setPassenger(Passenger passenger) {
-        this.passenger = passenger;
     }
 
     public String getFlightClass() {
         return flightClass;
     }
 
-    public boolean isReserved() {
-        return isReserved;
-    }
-
     public Passenger getPassenger() {
         return passenger;
     }
 }
+
+

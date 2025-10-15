@@ -1,16 +1,24 @@
 package lessons.lesson06;
 
 import java.io.*;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 
 public class ReservationSystem {
     private int totalSeats;
     private String destination;
+    private LocalDateTime flightDateTime;
     protected ArrayList<SeatReservation> seatReservations = new ArrayList<>();
 
-    public ReservationSystem(int totalSeats, String destination) {
+    public ReservationSystem(int totalSeats, String destination, LocalDateTime flightDateTime) {
         this.totalSeats = totalSeats;
         this.destination = destination;
+        this.flightDateTime = flightDateTime;
+
+        // создает пустые места
+        for (int i = 1; i <= totalSeats; i++) {
+            seatReservations.add(new SeatReservation(i, "Economy", false, null));
+        }
     }
 
     public SeatReservation findSeat(int seatNumber) {
@@ -25,63 +33,80 @@ public class ReservationSystem {
     public void bookSeat(int seatNumber, Passenger passenger) {
         SeatReservation seat = findSeat(seatNumber);
         if (seat != null) {
-            if (!seat.isReserved()) {
+            if (seat.status.equals("FREE")) {
                 seat.passenger = passenger;
                 seat.book();
             } else {
-                System.out.println("Not available!");
+                System.out.println("Not available! Current status: " + seat.status);
             }
         } else {
-            System.out.println("There is not such seat number!");
+            System.out.println("There is no such seat number!");
         }
     }
 
     public void cancelSeat(int seatNumber) {
         SeatReservation seat = findSeat(seatNumber);
         if (seat != null) {
-            if (seat.isReserved()) {
+            if (!seat.status.equals("FREE")) {
                 seat.cancel();
-                seat.passenger = null;
             } else {
-                System.out.println("This place is not booked, yet!");
+                System.out.println("This seat is not booked yet!");
             }
         } else {
-            System.out.println("There is no such place!");
+            System.out.println("There is no such seat!");
         }
     }
 
-    public String getSeatInfo(int seatNumber) {
+    public void payForSeat(int seatNumber) {
         SeatReservation seat = findSeat(seatNumber);
-        if (seat != null) {
-            if (seat.isReserved()) {
-                return "Seat number: " + seatNumber + "\nFlight class: " + seat.getFlightClass() + "\nIs it reserved: " + seat.isReserved() + "\nBy: " + seat.getPassenger().getFio() + "\nID of reserved: " + seat.getPassenger().getId();
-            } else {
-            }
-            return "Seat number: " + seatNumber + "\nFlight class: " + seat.getFlightClass() + "\n Is it reserved: " + seat.isReserved();
+        if (seat == null) {
+            System.out.println("There is no such seat!");
+            return;
+        }
+
+        if (seat.status.equals("BOOKED")) {
+            seat.status = "PAID";
+            System.out.println("Payment successful. Seat " + seatNumber + " is now paid!");
+        } else if (seat.status.equals("PAID")) {
+            System.out.println("This seat is already paid!");
         } else {
-            return "No such seat!";
+            System.out.println("Cannot pay for this seat! It’s not booked yet.");
         }
     }
 
     public void showAllSeats() {
+        System.out.println("=== All Seats in the Airplane ===");
+        for (SeatReservation seat : seatReservations) {
+            if (seat.isExpired()) {
+                seat.cancel();
+                System.out.println("Seat " + seat.getSeatNumber() + " — booking expired and freed automatically!");
+            }
 
+            String status = seat.status;
+            String fio = (seat.passenger != null) ? seat.passenger.getFio() : "No passenger";
+            System.out.printf("Seat %2d | Class: %-8s | Status: %-10s | %s%n",
+                    seat.getSeatNumber(), seat.getFlightClass(), status, fio);
+        }
+        System.out.println("================================");
     }
 
     public void saveToFile() {
         File directory = new File("Flight");
-        File file = new File("Flight/flightInfo.txt");
+        File file = new File(directory, "flightInfo.txt");
         try {
             directory.mkdir();
             file.createNewFile();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        try (FileWriter fileWriter = new FileWriter(file, true)) {
+
+        try (FileWriter writer = new FileWriter(file, false)) {
             for (SeatReservation s : seatReservations) {
-                fileWriter.write(s.getSeatNumber() + "\n");
-                fileWriter.write(s.getFlightClass() + "\n");
-                fileWriter.write(s.isReserved() + "\n");
-                fileWriter.write(s.getPassenger().getFio() + "\n");
+                writer.write(s.getSeatNumber() + "\n");
+                writer.write(s.getFlightClass() + "\n");
+                writer.write(s.status + "\n");
+                writer.write((s.bookingTime != null ? s.bookingTime.toString() : "null") + "\n");
+                writer.write((s.getPassenger() != null ? s.getPassenger().getFio() : "No passenger!") + "\n");
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -89,34 +114,39 @@ public class ReservationSystem {
     }
 
     public void loadFromFile() {
-        File directory = new File("Flight");
-        File file = new File("Flight/flightInfo.txt");
-        try {
-            directory.mkdir();
-            file.createNewFile();
+        File directory = new File("src/main/java/lessons/lesson06/Flight");
+        File file = new File(directory, "flightInfo.txt");
+        if (!file.exists()) return;
 
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        if (!file.exists()) {
-            return;
-        }
-        try (BufferedReader bufferedReader = new BufferedReader(new FileReader(file))) {
+        try (BufferedReader br = new BufferedReader(new FileReader(file))) {
             String line;
-            while ((line = bufferedReader.readLine()) != null) {
+            seatReservations.clear();
+
+            while ((line = br.readLine()) != null) {
                 int seatNumber = Integer.parseInt(line);
-                String flightClass = bufferedReader.readLine();
-                boolean isReserved = Boolean.parseBoolean(line);
-                String passengerFio = bufferedReader.readLine();
+                String flightClass = br.readLine();
+                String status = br.readLine();
+                String bookingTimeStr = br.readLine();
+                String passengerFio = br.readLine();
+
                 Passenger passenger = null;
                 if (!passengerFio.equals("No passenger!")) {
                     passenger = new Passenger(passengerFio, 0, seatNumber, flightClass);
                 }
-                SeatReservation seat = new SeatReservation(seatNumber, flightClass, isReserved, passenger);
+
+                SeatReservation seat = new SeatReservation(seatNumber, flightClass, false, passenger);
+                seat.status = status;
+                if (!"null".equals(bookingTimeStr)) {
+                    seat.bookingTime = LocalDateTime.parse(bookingTimeStr);
+                }
+
                 seatReservations.add(seat);
             }
         } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
+
+
+
